@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 import re, requests
 from urllib.parse import urlparse, parse_qs
 from _collections import defaultdict
-import string, lxml
+import string
 
 # things to tackle: robots.txt, politeness, coming across a page you've seen before
 
@@ -25,7 +25,6 @@ def extract_next_links(url, resp):
 
     return next_links
 
-def check_value(url):
 
 
 
@@ -58,6 +57,35 @@ def is_valid(url):
 
         # Checks if scheme is valid
         if parsed.scheme not in set(["http", "https"]):
+          return False
+
+        # check if subdomain is in valid domains
+        domain = "(ics\.uci\.edu|cs\.uci\.edu|informatics\.uci\.edu|stat\.uci\.edu|today\.uci\.edu\/department\/information_computer_sciences)"
+        if not re.search(domain, parsed.netloc):
+            return False
+
+        # cannot crawl to sites with the following in their url
+        # i.e. /about/pdf/textbook.html is not a valid url
+        # i.e. /about/hello/textbook.pdf is not a valid url
+        extensions = "(\.)?(css|js|bmp|gif|jpe?g|ico|png|tiff?|mid|mp2|mp3|mp4|wav|avi|mov|mpeg|ram|" \
+                     "m4v|mkv|ogg|ogv|pdf|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|data|dat|exe|" \
+                     "bz2|tar|msi|bin|7z|psd|dmg|iso|epub|dll|cnf|tgz|sha1|thmx|mso|arff|rtf|jar|csv|" \
+                     "rm|smil|wmv|swf|wma|zip|rar|gz)"
+        if re.search(extensions, parsed.path) != None:
+            return False
+
+        if re.search(extensions, parsed.netloc) != None:
+            return False
+
+        # Check if the URL has more than 1 query parameter
+        if len(parse_qs(parsed.query)) > 1:
+          return False
+
+        if 'reply' or 'share' in parse_qs(parsed.query):
+            return False
+
+        # Checks the len of the URL, if it has more than 250, it is not valid
+        if len(url) > 250:
             return False
 
         # Checks if domain or if subdomain is valid
@@ -123,6 +151,16 @@ def is_valid(url):
             # output.close()
             return True
 
+        # Check if URL is an anchor or a calendar
+        if '#' in url or '.calendar' in url:
+            return False
+
+        # Check if the subdirectories in the path do not repeat
+        path_directory = parsed.path[1:].split('/')
+        if len(path_directory) != len(set(path_directory)):
+            return False
+        else:
+          return True
     except TypeError:
         raise
 
